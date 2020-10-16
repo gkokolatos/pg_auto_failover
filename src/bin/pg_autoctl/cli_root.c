@@ -94,6 +94,7 @@ CommandLine *root_subcommands_with_debug[] = {
 	&service_stop_command,
 	&service_reload_command,
 	&service_status_command,
+	&do_pgbouncer_commands,
 	&help,
 	&version,
 	NULL
@@ -120,6 +121,7 @@ CommandLine *root_subcommands[] = {
 	&service_stop_command,
 	&service_reload_command,
 	&service_status_command,
+	&do_pgbouncer_commands,
 	&help,
 	&version,
 	NULL

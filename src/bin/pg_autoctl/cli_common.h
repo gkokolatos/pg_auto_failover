@@ -126,6 +126,13 @@ extern CommandLine show_standby_names_command;
 /* cli_systemd.c */
 extern CommandLine systemd_cat_service_file_command;
 
+/* cli_do_pgbouncer.c */
+extern CommandLine do_pgbouncer_start_command;
+extern CommandLine do_pgbouncer_stop_command;
+extern CommandLine do_pgbouncer_restart_command;
+extern CommandLine do_pgbouncer_status_command;
+extern CommandLine do_pgbouncer_commands;
+
 /*
  * Handling SSL options on the command line and their inter-compatibility is a
  * little complex.
