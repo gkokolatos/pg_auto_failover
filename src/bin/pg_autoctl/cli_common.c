@@ -80,6 +80,7 @@ static void stop_postgres_and_remove_pgdata_and_config(ConfigFilePaths *pathname
  *      { "server-cert", required_argument, &ssl_flag, SSL_SERVER_CRT_FLAG },
  *      { "server-key", required_argument, &ssl_flag, SSL_SERVER_KEY_FLAG },
  *      { "ssl-mode", required_argument, &ssl_flag, SSL_MODE_FLAG },
+ *      { "enable-pgbouncer", required_argument, NULL, 'B' },
  *		{ NULL, 0, NULL, 0 }
  *	};
  *
@@ -385,6 +386,17 @@ cli_common_keeper_getopts(int argc, char **argv,
 				break;
 			}
 
+			case 'B':
+			{
+				/* { "enable-pgbouncer", required_argument, NULL, 'B' }, */
+				strlcpy(LocalOptionConfig.pgbouncerUserConfig, optarg,
+						MAXPGPATH);
+				strlcpy(LocalOptionConfig.pgbouncer, "enabled", MAXPGPATH);
+				log_trace("--enable-pgbouncer %s",
+						  LocalOptionConfig.pgbouncerUserConfig);
+				break;
+			}
+
 			case 's':
 			{
 				/* { "ssl-self-signed", no_argument, NULL, 's' }, */
@@ -534,6 +546,7 @@ cli_common_keeper_getopts(int argc, char **argv,
  *      { "server-crt", required_argument, &ssl_flag, SSL_SERVER_CRT_FLAG },
  *      { "server-key", required_argument, &ssl_flag, SSL_SERVER_KEY_FLAG },
  *      { "ssl-mode", required_argument, &ssl_flag, SSL_MODE_FLAG },
+ *      { "enable-pgbouncer", required_argument, NULL, 'B' },
  *		{ NULL, 0, NULL, 0 }
  *	};
  *

@@ -33,6 +33,11 @@
 #define SERVICE_NAME_MONITOR_INIT "monitor-init"
 
 /*
+ * Other service names are sted in this section.
+ */
+#define SERVICE_NAME_PGBOUNCER "pgbouncer"
+
+/*
  * Our supervisor process may retart a service sub-process when it quits,
  * depending on the exit status and the restart policy that has been choosen:
  *

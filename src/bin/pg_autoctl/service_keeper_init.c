@@ -27,6 +27,7 @@
 #include "state.h"
 #include "service_keeper.h"
 #include "service_keeper_init.h"
+#include "service_pgbouncer.h"
 #include "service_postgres_ctl.h"
 #include "signals.h"
 #include "string_utils.h"
@@ -43,6 +44,13 @@ static void
 service_keeper_handle_dynamic(Supervisor *supervisor, void *arg, int *diffCount)
 {
 	Keeper *keeper = (Keeper *) arg;
+	Service service = {
+		SERVICE_NAME_PGBOUNCER,
+		RP_PERMANENT,
+		-1,
+		&service_pgbouncer_start,
+		(void *) keeper,
+	};
 
 	*diffCount = 0;
 
@@ -52,9 +60,21 @@ service_keeper_handle_dynamic(Supervisor *supervisor, void *arg, int *diffCount)
 	 */
 	(void) keeper_reread_services(keeper);
 
-	/*
-	 * Nothing else to be done for now since no services have been configured
-	 */
+	if (!strncmp(keeper->config.pgbouncer, "enabled", strlen("enabled")))
+	{
+		if (!supervisor_service_exists(supervisor, service.name) &&
+			supervisor_enable_dynamic_service(supervisor, &service))
+		{
+			*diffCount = 1;
+		}
+	}
+	else if (!strncmp(keeper->config.pgbouncer, "disabled", strlen("disabled")))
+	{
+		if (supervisor_disable_dynamic_service(supervisor, service.name))
+		{
+			*diffCount = -1;
+		}
+	}
 }
 
 
