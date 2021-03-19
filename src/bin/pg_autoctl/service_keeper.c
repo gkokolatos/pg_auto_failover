@@ -593,7 +593,6 @@ keeper_node_active_loop(Keeper *keeper, pid_t start_pid)
 	/* One last check that we do not have any connections open */
 	pgsql_finish(&(keeper->monitor.pgsql));
 	pgsql_finish(&(keeper->monitor.notificationClient));
-	pgsql_finish(pgsql);
 
 	return true;
 }
@@ -624,6 +623,8 @@ keeper_node_active(Keeper *keeper, bool doInit)
 
 	bool forceCacheInvalidation = false;
 	bool reportPgIsRunning = ReportPgIsRunning(keeper);
+
+	char *emptyChannel[] = { 0 };
 
 	/*
 	 * First, connect to the monitor and check we're compatible with the
@@ -806,11 +807,8 @@ keeper_node_active(Keeper *keeper, bool doInit)
 		}
 	}
 
-	/*
-	 * Finally make establish a connection for notifications in case it had
-	 * closed before
-	 */
-	(void) pgsql_listen(&(keeper->monitor.notificationClient), &((char *){ 0 }));
+	/* Finally establish a connection for notifications if none present. */
+	(void) pgsql_listen(&(keeper->monitor.notificationClient), emptyChannel);
 
 	return true;
 }
