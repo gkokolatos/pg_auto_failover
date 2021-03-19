@@ -590,6 +590,11 @@ keeper_node_active_loop(Keeper *keeper, pid_t start_pid)
 		}
 	}
 
+	/* One last check that we do not have any connections open */
+	pgsql_finish(&(keeper->monitor.pgsql));
+	pgsql_finish(&(keeper->monitor.notificationClient));
+	pgsql_finish(pgsql);
+
 	return true;
 }
 
@@ -800,6 +805,12 @@ keeper_node_active(Keeper *keeper, bool doInit)
 			return false;
 		}
 	}
+
+	/*
+	 * Finally make establish a connection for notifications in case it had
+	 * closed before
+	 */
+	(void) pgsql_listen(&(keeper->monitor.notificationClient), &((char *){ 0 }));
 
 	return true;
 }

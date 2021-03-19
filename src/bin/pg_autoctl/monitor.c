@@ -194,6 +194,12 @@ monitor_init(Monitor *monitor, char *url)
 		return false;
 	}
 
+	if (!pgsql_init(&monitor->notificationClient, url, PGSQL_CONN_MONITOR))
+	{
+		/* URL must be invalid, pgsql_init logged an error */
+		return false;
+	}
+
 	return true;
 }
 
@@ -205,12 +211,12 @@ monitor_init(Monitor *monitor, char *url)
 void
 monitor_setup_notifications(Monitor *monitor, int groupId, int nodeId)
 {
-	monitor->pgsql.notificationGroupId = groupId;
-	monitor->pgsql.notificationNodeId = nodeId;
-	monitor->pgsql.notificationReceived = false;
+	monitor->notificationClient.notificationGroupId = groupId;
+	monitor->notificationClient.notificationNodeId = nodeId;
+	monitor->notificationClient.notificationReceived = false;
 
 	/* install our notification handler */
-	monitor->pgsql.notificationProcessFunction =
+	monitor->notificationClient.notificationProcessFunction =
 		&monitor_process_state_notification;
 }
 
@@ -223,9 +229,9 @@ monitor_setup_notifications(Monitor *monitor, int groupId, int nodeId)
 bool
 monitor_has_received_notifications(Monitor *monitor)
 {
-	bool ret = monitor->pgsql.notificationReceived;
+	bool ret = monitor->notificationClient.notificationReceived;
 
-	monitor->pgsql.notificationReceived = false;
+	monitor->notificationClient.notificationReceived = false;
 
 	return ret;
 }
@@ -277,6 +283,12 @@ monitor_local_init(Monitor *monitor)
 	pg_setup_get_local_connection_string(pgSetup, connInfo);
 
 	if (!pgsql_init(&monitor->pgsql, connInfo, PGSQL_CONN_LOCAL))
+	{
+		/* URL must be invalid, pgsql_init logged an error */
+		return false;
+	}
+
+	if (!pgsql_init(&monitor->notificationClient, connInfo, PGSQL_CONN_LOCAL))
 	{
 		/* URL must be invalid, pgsql_init logged an error */
 		return false;
@@ -421,9 +433,6 @@ monitor_print_nodes_as_json(Monitor *monitor, char *formation, int groupId)
 		}
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	if (!context.parsedOk)
 	{
@@ -573,9 +582,6 @@ monitor_print_other_nodes_as_json(Monitor *monitor,
 		}
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	if (!context.parsedOk)
 	{
@@ -1041,14 +1047,8 @@ monitor_get_node_replication_settings(Monitor *monitor,
 		log_error("Failed to retrieve node settings for node \"%s\".",
 				  settings->name);
 
-		/* disconnect from monitor */
-		pgsql_finish(&monitor->pgsql);
-
 		return false;
 	}
-
-	/* disconnect from monitor */
-	pgsql_finish(&monitor->pgsql);
 
 	if (!parseContext.parsedOK)
 	{
@@ -1144,9 +1144,6 @@ monitor_get_formation_number_sync_standbys(Monitor *monitor, char *formation,
 		log_error("Failed to retrieve settings for formation \"%s\".",
 				  formation);
 
-		/* disconnect from monitor */
-		pgsql_finish(&monitor->pgsql);
-
 		return false;
 	}
 
@@ -1189,10 +1186,6 @@ monitor_set_formation_number_sync_standbys(Monitor *monitor, char *formation,
 	{
 		log_error("Failed to update number-sync-standbys for formation \"%s\".",
 				  formation);
-
-		/* disconnect from monitor */
-		pgsql_finish(&monitor->pgsql);
-
 		return false;
 	}
 
@@ -1229,9 +1222,6 @@ monitor_remove(Monitor *monitor, char *host, int port)
 		log_error("Failed to remove node %s:%d from the monitor", host, port);
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	if (!context.parsedOk)
 	{
@@ -1679,9 +1669,6 @@ monitor_print_state(Monitor *monitor, char *formation, int group)
 		return false;
 	}
 
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
-
 	if (!context.parsedOK)
 	{
 		log_error("Failed to parse current state from the monitor");
@@ -1991,9 +1978,6 @@ monitor_print_state_as_json(Monitor *monitor, char *formation, int group)
 		return false;
 	}
 
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
-
 	if (!context.parsedOk)
 	{
 		log_error("Failed to parse current state from the monitor");
@@ -2080,9 +2064,6 @@ monitor_print_last_events(Monitor *monitor, char *formation, int group, int coun
 		return false;
 	}
 
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
-
 	if (!context.parsedOK)
 	{
 		return false;
@@ -2160,9 +2141,6 @@ monitor_print_last_events_as_json(Monitor *monitor,
 				  count);
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	if (!context.parsedOk)
 	{
@@ -2266,10 +2244,6 @@ monitor_create_formation(Monitor *monitor,
 		return false;
 	}
 
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
-
-
 	return true;
 }
 
@@ -2334,9 +2308,6 @@ monitor_disable_secondary_for_formation(Monitor *monitor, const char *formation)
 		return false;
 	}
 
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
-
 	return true;
 }
 
@@ -2364,9 +2335,6 @@ monitor_drop_formation(Monitor *monitor, char *formation)
 				  formation);
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	return true;
 }
@@ -2434,9 +2402,6 @@ monitor_formation_uri(Monitor *monitor,
 	strlcpy(connectionString, context.strVal, size);
 	free(context.strVal);
 
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
-
 	return true;
 }
 
@@ -2490,9 +2455,6 @@ monitor_print_every_formation_uri(Monitor *monitor, const SSLOptions *ssl)
 		/* errors have already been logged */
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	return true;
 }
@@ -2555,9 +2517,6 @@ monitor_print_every_formation_uri_as_json(Monitor *monitor,
 		}
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	fformat(stream, "%s\n", context.strVal);
 	free(context.strVal);
@@ -2656,9 +2615,6 @@ monitor_print_formation_settings(Monitor *monitor, char *formation)
 		log_error("Failed to retrieve current state from the monitor");
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	if (!context.parsedOK)
 	{
@@ -2808,9 +2764,6 @@ monitor_print_formation_settings_as_json(Monitor *monitor, char *formation)
 		log_error("Failed to retrieve current state from the monitor");
 		return false;
 	}
-
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
 
 	if (!context.parsedOk)
 	{
@@ -3017,9 +2970,6 @@ monitor_set_group_system_identifier(Monitor *monitor,
 		return false;
 	}
 
-	/* disconnect from PostgreSQL now */
-	pgsql_finish(&monitor->pgsql);
-
 	if (!context.parsedOk)
 	{
 		/* *INDENT-OFF* */
@@ -3220,7 +3170,7 @@ monitor_process_notifications(Monitor *monitor,
 							  void *notificationContext,
 							  NotificationProcessingFunction processor)
 {
-	PGconn *connection = monitor->pgsql.connection;
+	PGconn *connection = monitor->notificationClient.connection;
 	PGnotify *notify;
 
 
@@ -3251,7 +3201,7 @@ monitor_process_notifications(Monitor *monitor,
 		return false;
 	}
 
-	if (!pgsql_listen(&(monitor->pgsql), channels))
+	if (!pgsql_listen(&(monitor->notificationClient), channels))
 	{
 		/* restore signal masks (un block them) now */
 		(void) unblock_signals(&sig_mask_orig);
@@ -3259,7 +3209,7 @@ monitor_process_notifications(Monitor *monitor,
 		return false;
 	}
 
-	if (monitor->pgsql.connection == NULL)
+	if (monitor->notificationClient.connection == NULL)
 	{
 		log_warn("Lost connection.");
 
@@ -3275,7 +3225,7 @@ monitor_process_notifications(Monitor *monitor,
 	 *
 	 * https://www.postgresql.org/docs/current/libpq-example.html#LIBPQ-EXAMPLE-2
 	 */
-	int sock = PQsocket(monitor->pgsql.connection);
+	int sock = PQsocket(monitor->notificationClient.connection);
 
 	if (sock < 0)
 	{
@@ -3468,7 +3418,7 @@ bool
 monitor_wait_until_primary_applied_settings(Monitor *monitor,
 											const char *formation)
 {
-	PGconn *connection = monitor->pgsql.connection;
+	PGconn *connection = monitor->notificationClient.connection;
 	ApplySettingsNotificationContext context = {
 		(char *) formation,
 		false,
@@ -3511,7 +3461,7 @@ monitor_wait_until_primary_applied_settings(Monitor *monitor,
 	}
 
 	/* disconnect from monitor */
-	pgsql_finish(&monitor->pgsql);
+	pgsql_finish(&monitor->notificationClient);
 
 	return context.applySettingsTransitionDone;
 }
@@ -3558,7 +3508,7 @@ monitor_wait_for_state_change(Monitor *monitor,
 							  int timeoutMs,
 							  bool *stateHasChanged)
 {
-	PGconn *connection = monitor->pgsql.connection;
+	PGconn *connection = monitor->notificationClient.connection;
 
 	WaitForStateChangeNotificationContext context = {
 		(char *) formation,
@@ -3719,7 +3669,7 @@ monitor_wait_until_some_node_reported_state(Monitor *monitor,
 											PgInstanceKind nodeKind,
 											NodeState targetState)
 {
-	PGconn *connection = monitor->pgsql.connection;
+	PGconn *connection = monitor->notificationClient.connection;
 
 	NodeAddressArray nodesArray = { 0 };
 	NodeAddressHeaders headers = { 0 };
@@ -3769,7 +3719,7 @@ monitor_wait_until_some_node_reported_state(Monitor *monitor,
 	}
 
 	/* disconnect from monitor */
-	pgsql_finish(&monitor->pgsql);
+	pgsql_finish(&monitor->notificationClient);
 
 	return context.failoverIsDone;
 }
@@ -3852,7 +3802,7 @@ monitor_wait_until_node_reported_state(Monitor *monitor,
 									   PgInstanceKind nodeKind,
 									   NodeState targetState)
 {
-	PGconn *connection = monitor->pgsql.connection;
+	PGconn *connection = monitor->notificationClient.connection;
 
 	NodeAddressArray nodesArray = { 0 };
 	NodeAddressHeaders headers = { 0 };
@@ -3903,7 +3853,7 @@ monitor_wait_until_node_reported_state(Monitor *monitor,
 	}
 
 	/* disconnect from monitor */
-	pgsql_finish(&monitor->pgsql);
+	pgsql_finish(&monitor->notificationClient);
 
 	return context.done;
 }
@@ -4158,6 +4108,7 @@ monitor_ensure_extension_version(Monitor *monitor,
 
 		/* avoid spurious error messages about losing our connection */
 		pgsql_finish(&(monitor->pgsql));
+		pgsql_finish(&(monitor->notificationClient));
 
 		if (!ensure_postgres_service_is_stopped(postgres))
 		{
